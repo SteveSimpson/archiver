@@ -1,0 +1,210 @@
+#!/usr/bin/env python3
+
+import yaml
+import os
+import logging
+
+config_path = 'archiver.yaml'
+config = None
+
+def load_archiver_config(config_path):
+    """Load the archiver configuration from a YAML file."""
+    try:
+        with open(config_path, 'r') as file:
+            config = yaml.safe_load(file)
+            return config
+    except FileNotFoundError:
+        print(f"Configuration file {config_path} not found.")
+        return None
+    except yaml.YAMLError as e:
+        print(f"Error parsing YAML file: {e}")
+        return None
+
+def print_usage():
+    """Print usage instructions."""
+    print("Usage: archiver [options]")
+    print("Options:")
+    print("  --name,   -n <name>        Set the name for the backup (*required)")
+    print("  --source, -s <directory>   Set the source directory")
+    print("  --target, -t <directory>   Set the target directory")
+    print("  --backup, -b <directory>   Set the backup directory")
+    print("  --help,   -h               Show this help message")
+
+def process_args(args):
+    """Process command line arguments."""
+
+    for index, arg in enumerate(args):
+        success = True
+
+        if arg in ['--source', '--target', '--backup', '-s', '-t', '-b']:
+            if len(args) >= index:
+                dirname = args[index +1]
+                if os.path.exists(dirname):
+                    if arg in ['--source', '-s']:
+                        config['source'] = dirname
+                        continue
+                    elif arg in ['--target', '-t']:
+                        config['target'] = dirname
+                        continue
+                    elif arg in ['--backup', '-b']:
+                        config['backup'] = dirname
+                        continue
+                        
+            print(f"{arg} must be followed by a vaild directory")
+            success = False
+        if arg in ['--name', '-n']:
+            if len(args) >= index:
+                name = args[index +1]
+                config['name'] = name
+                continue
+
+            print(f"{arg} must be followed by a vaild backup name")
+            success = False
+        if arg in ['--help', '-h']:
+            print_usage()
+            exit(0)
+        return success
+
+class Archiver:
+    def __init__(self, config):
+        for required in ['target', 'source', 'sqlite', 'logfile', 'file_types']:
+            if required not in config:
+                print(f"Required config item not found: {required}; some functions may not work")
+                exit(1)
+
+        self.target = config.get('target', None)
+        self.source = config.get('source', None)
+        self.sqlite = config.get('sqlite', None)
+        self.logfile = config.get('logfile', None)
+        self.file_types = config.get('file_types', None)
+        self.extension_groups = {}
+
+        if not self.validate_directory(os.path.dirname(self.logfile), "Log file path must be a directory"):
+            print("Log file path invalid")
+            exit(1)
+
+        all_extensions = []
+        for group, extensions in config['file_types'].items():
+            for ext in extensions:
+                ext = ext.lower()
+                self.extension_groups[ext] = group
+                all_extensions.append(ext)
+
+        logging.basicConfig(
+            filename=self.logfile,
+            level=logging.INFO,
+            format='%(asctime)s - %(levelname)s - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S',
+            filemode='a'  # Append mode 
+        )
+
+        self.all_extensions = set(all_extensions)
+        print(f"All extensions to process: {self.all_extensions}")
+
+
+    def validate_directory(self, path, hint=None):
+        """Validate that the given path is a directory."""
+        if path is None:
+            print(f"Path is None. {hint}")
+            return False
+        if not os.path.exists(path):
+            print(f"Directory: '{path}' does not exist. {hint}")
+            return False
+        if not os.path.isdir(path):
+            print(f"Path: 'path' is not a directory. {hint}")
+            return False
+        return True
+
+    def add_file(self, file_path):
+        return True
+        # """Add a file to the configuration for processing."""
+        # if 'files' not in config:
+        #     config['files'] = []
+        # if not os.path.exists(file_path):
+        #     print(f"File {file_path} does not exist.")
+        #     return False
+        # if not os.path.isfile(file_path):
+        #     print(f"Path {file_path} is not a file.")
+        #     return False
+
+                    # try:
+                    #     os.rename(source_file, target_file)  # Use rename for moving files
+                    # except Exception as e:
+                    #     print(f"Error moving file {source_file} to {target_file}: {e}")
+                    #     return False
+
+        # config['files'].append(file_path)
+        # print(f"Added file: {file_path}")
+
+        # if 'target' not in config:
+        #     print("Target directory not defined in configuration")
+        #     return False
+        # if not os.path.exists(config['target']):
+        #     print(f"Target directory '{config['target']}' does not exist.")
+        #     return False
+        # if not os.path.isdir(config['target']):
+        #     print(f"Target path '{config['target']}' is not a directory.")
+        #     return False
+        # target = config.get('target')
+
+
+
+    def process_file(self, file_path, ext, directory):
+        print(f"Processing file: {file_path}, extension: {ext}, directory: {directory}")
+        return True
+        # """Process a single file based on the configuration."""
+        # if not os.path.exists(file_path):
+        #     print(f"File {file_path} does not exist.")
+        #     return False
+        # if not os.path.isfile(file_path):
+        #     print(f"Path {file_path} is not a file.")
+        #     return False
+
+        # # Here you can add logic to process the file as needed
+        # print(f"Processing file: {file_path}")
+        
+    # This is the primary loop that looks at the files and sees if they are interesting,
+    # that is to say, an extension in a group that we care about
+    def process_archive_directory(self):
+
+        """Process the source directory and archive files based on their extensions."""
+        if not self.validate_directory(self.source, "Source directory must be a valid directory"):
+            print("Source directory invalid")
+            return False
+
+        for dirname, subdirs, files in os.walk(self.source):
+            for file in files:
+                name, ext = os.path.splitext(file)
+                if len(ext) > 1 and ext[0] == ".":
+                    ext = ext.lower()[1:]
+                else:
+                    # if it doesn't start with a dot, just make it lowercase
+                    ext = ext.lower()
+
+                if ext in self.all_extensions:
+                    if self.process_file(name, ext, dirname) == False:
+                        return False
+
+        return True
+
+if __name__ == "__main__":
+    print("Running archiver script...")
+    config = load_archiver_config(config_path)
+    if config is None:
+        print("Failed to load configuration. Exiting.")
+        exit(1)
+    if process_args(os.sys.argv[1:]) == False:
+        print("Error processing arguments. Exiting.")
+        print_usage()
+        exit(1)
+    if 'name' not in config or config['name'] is None:
+        print(f"Name for the backup is required. Please provide a name using --name or -n.")
+        print_usage()
+        exit(1)
+
+    runner = Archiver(config)
+    if not runner.process_archive_directory():
+        print("Failed to process archive directory.")
+        exit(1)
+
+    print("Archiver script executed successfully.")

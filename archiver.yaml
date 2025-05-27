@@ -1,0 +1,58 @@
+---
+
+# Path configurations
+source: /Users/ssimpson/Documents
+target: /Users/ssimpson/archive
+backup: /Users/ssimpson/backup
+sqlite: /Users/ssimpson/archiver.db
+logfile: /Users/ssimpson/src/ssimpson/archiver/archiver.log
+
+# File configurations (only list lower case extensions)
+file_types:
+  images:
+    - gif
+    - jpg
+    - jpeg
+    - png
+    - svg
+    - bmp
+    - tiff
+    - tif
+    - heic
+    - ico
+  media:
+    - mp3
+    - mp4
+    - avi
+    - mkv
+    - flv
+    - mov
+    - wmv
+    - webm
+    - m4a
+    - wav
+    - ogg
+    - aac
+    - flac
+    - wma
+    - mpeg
+  documents:
+    - pdf
+    - doc
+    - docx
+    - xls
+    - xlsx
+    - pub
+    - epub
+    - ppt
+    - pptx
+  data:
+    - sqlite
+    - csv
+    - sql
+    - mdb
+    - db
+    - psp
+    - ai
+  archives:
+    - zip
