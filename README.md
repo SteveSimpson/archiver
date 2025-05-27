@@ -22,7 +22,7 @@ archiver.cfg
 source:
 target:
 backup:
-sqlite_db:
+sqlite:
 image_types:
   - gif
   - jpg
