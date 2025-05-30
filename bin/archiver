@@ -7,6 +7,7 @@ from datetime import datetime
 import sqlite3
 import hashlib
 import shutil
+import pathvalidate
 
 config_path = '~/.archiver/config.yaml'
 configs = None
@@ -184,7 +185,6 @@ def sql_schema():
         '''
     ]
 
-
 class Archiver:
     def __init__(self, config):
         for required in ['dir_target', 'dir_source', 'db_sqlite', 'dir_logs', 'file_types']:
@@ -273,7 +273,7 @@ class Archiver:
         """
 
         # the output path will be {target}/{group}/{ext}/{sha256}.{ext}
-        target_path = os.path.join(self.target, found_values[3], found_values[2], found_values[0] + '.' + found_values[2])
+        target_path = pathvalidate.sanitize_filename(os.path.join(self.target, found_values[3], found_values[2], found_values[0] + '.' + found_values[2]))
         target_dir = os.path.dirname(target_path)
         src_path = os.path.join(found_values[8], found_values[1] + '.' + found_values[2])
         
