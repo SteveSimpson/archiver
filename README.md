@@ -10,6 +10,18 @@ and metadata in a database.
 ### Phase 1
 
 Create the Archive 
+## Mounting Disks
+
+Mount all disks under /mnt/souce like
+
+```sh
+mkdir Windows
+mkdir DATA
+mkdir System
+mount -o uid=1000,gid=1000,ro /dev/sdd1 /mnt/source/System
+mount -o uid=1000,gid=1000,ro /dev/sdd2 /mnt/source/Windows
+mount -o uid=1000,gid=1000,ro /dev/sdd5 /mnt/source/DATA
+```
 
 ## Scripts
 
