@@ -28,3 +28,9 @@ CREATE TABLE IF NOT EXISTS files_found (
     modified_at TIMESTAMP,
     created_at TIMESTAMP,
 );
+
+CREATE TABLE IF NOT EXISTS version (
+    id SERIAL PRIMARY KEY,
+    version INTEGER,
+    name  TEXT,
+);

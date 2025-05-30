@@ -1,11 +1,11 @@
 ---
 
 # Path configurations
-source: /Users/ssimpson/Documents
-target: /Users/ssimpson/archive
-backup: /Users/ssimpson/backup
-sqlite: /Users/ssimpson/archiver.db
-logfile: /Users/ssimpson/src/ssimpson/archiver/archiver.log
+source: ~/Documents
+target: ~/archive
+backup: ~/backup
+sqlite: ~/.archiver/archiver.sqlite
+logdir: ~/.archiver/log
 
 # File configurations (only list lower case extensions)
 file_types:
