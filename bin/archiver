@@ -1,0 +1,454 @@
+#!/usr/bin/env python3
+
+import yaml
+import os
+import logging
+from datetime import datetime
+import sqlite3
+import hashlib
+import shutil
+
+config_path = '~/.archiver/config.yaml'
+configs = None
+
+def load_archiver_config(config_path):
+    try:
+        with open(expand_path(config_path), 'r') as file:
+            config = yaml.safe_load(file)
+            return config
+    except FileNotFoundError:
+        print(f"Configuration file {config_path} not found.")
+        return None
+    except yaml.YAMLError as e:
+        print(f"Error parsing YAML file: {e}")
+        return None
+
+def init_dir(config_path):
+    """Create the archiver config directory if it does not exist."""
+    config_dir = os.path.expanduser(os.path.dirname(config_path))
+    if not os.path.exists(config_dir):
+        try:
+            os.makedirs(config_dir)
+            print(f"Created directory: {config_dir}")
+
+        except OSError as e:
+            print(f"Error creating directory {config_dir}: {e}")
+            return False
+    else:
+        print(f"Directory already exists: {config_dir}")
+
+    file_path = os.path.expanduser(config_dir + "/archiver.sqlite")
+    if not os.path.exists(file_path):
+        try:    
+            with open(file_path, 'w') as file:
+                pass  # Create an empty SQLite file
+            print(f"Created SQLite file: {file_path}")
+        except OSError as e:
+            print(f"Error creating SQLite file {file_path}: {e}")
+            return False
+    else:   
+        print(f"SQLite file already exists: {file_path}")
+    
+    # Create the log directory if it does not exist
+    log_dir = os.path.expanduser(os.path.join(config_dir, 'log'))
+    if not os.path.exists(log_dir):
+        try:
+            os.makedirs(log_dir)
+            print(f"Created log directory: {log_dir}")
+        except OSError as e:
+            print(f"Error creating log directory {log_dir}: {e}")
+            return False
+    else:
+        print(f"Log directory already exists: {log_dir}")
+                   
+    # Create the initial configuration file if it does not exist
+    init_config = {'dir_source': '~/Documents', 'dir_target': '~/archive', 'dir_backup': '~/backup', 'db_sqlite': '~/.archiver/archiver.sqlite', 'dir_logs': '~/.archiver/log', 
+                   'file_types': {'images': ['gif', 'jpg', 'jpeg', 'png', 'svg', 'bmp', 'tiff', 'tif', 'heic', 'ico'], 
+                                  'media': ['mp3', 'mp4', 'avi', 'mkv', 'flv', 'mov', 'wmv', 'webm', 'm4a', 'wav', 'ogg', 'aac', 'flac', 'wma', 'mpeg'],
+                                  'documents': ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'pub', 'epub', 'ppt', 'pptx'], 'data': ['sqlite', 'csv', 'sql', 'mdb', 'db', 'psp', 'ai'],
+                                  'archives': ['zip']}}
+    file_path = os.path.expanduser(config_dir + "/config.yaml")
+    if not os.path.exists(file_path):
+        try:
+            with open(file_path, 'w') as file:
+                yaml.dump(init_config, file)
+            print(f"Created configuration file: {file_path}")
+        except OSError as e:
+            print(f"Error creating configuration file {file_path}: {e}")
+            return False
+    else:
+        print(f"Configuration file already exists: {file_path}. Delete the file to create a new one.")
+
+    return True
+
+def print_usage():
+    """Print usage instructions."""
+    print("Usage: archiver [options]")
+    print("Options:")
+    print(f"  --config,  -c <file>       Override config file (default: {config_path})")
+    print("  --name,    -n <name>       Set the name for the backup (*required)")
+    print("  --source,  -s <directory>  Set the source directory")
+    print("  --target,  -t <directory>  Set the target directory")
+    print("  --backup,  -b <directory>  Set the backup directory")
+    print("  --sqlite,  -q <file>       Set the SQLite database file")
+    print("  --logfile, -l <file>       Set the log file")
+    print("  --dump,    -d              Dump the current sql schema to stdout")
+    print("  --init,    -i              Init archiver config directory (should be the only option)")
+    print("  --help,    -h              Show this help message")
+
+def expand_path(path):
+    """Expand the given path to an absolute path."""
+    if path is None:
+        return None
+    return os.path.abspath(os.path.expanduser(path))
+
+def process_args(args):
+    """Process command line arguments."""
+    # TODO: -q -l
+
+    for index, arg in enumerate(args):
+        success = True
+
+        if arg in ['--source', '--target', '--backup', '-s', '-t', '-b']:
+            if len(args) >= index:
+                dirname = args[index +1]
+                if os.path.exists(dirname):
+                    if arg in ['--source', '-s']:
+                        config['dir_source'] = dirname
+                        continue
+                    elif arg in ['--target', '-t']:
+                        config['dir_target'] = dirname
+                        continue
+                    elif arg in ['--backup', '-b']:
+                        config['dir_backup'] = dirname
+                        continue
+                        
+            print(f"{arg} must be followed by a vaild directory")
+            success = False
+        if arg in ['--name', '-n']:
+            if len(args) >= index:
+                name = args[index +1]
+                config['name'] = name
+                continue
+
+            print(f"{arg} must be followed by a vaild backup name")
+            success = False
+        if arg in ['--help', '-h']:
+            print_usage()
+            exit(0)
+
+        return success
+
+def sql_schema():
+    """Returns a list of SQL statements to create the necessary tables."""
+    return [
+        '''
+        CREATE TABLE IF NOT EXISTS files (
+            id SERIAL PRIMARY KEY,
+            sha256 VARCHAR(64) NOT NULL UNIQUE,
+            name VARCHAR(255) NOT NULL,
+            extension VARCHAR(10) NOT NULL,
+            `group` VARCHAR(20) NOT NULL,
+            created_at TIMESTAMP,
+            modified_at TIMESTAMP,        
+            archive_full_path TEXT NOT NULL,
+            size BIGINT NOT NULL,
+            thumbnail_path TEXT
+        );
+        ''',
+        '''
+        CREATE TABLE IF NOT EXISTS files_found (
+            id SERIAL PRIMARY KEY,
+            sha256 VARCHAR(64) NOT NULL,
+            name VARCHAR(255) NOT NULL,
+            extension VARCHAR(10) NOT NULL,
+            `group` VARCHAR(20) NOT NULL,
+            created_at TIMESTAMP,
+            modified_at TIMESTAMP,           
+            accessed_at TIMESTAMP,
+            source_drive VARCHAR(255) NOT NULL,
+            source_path TEXT NOT NULL,
+            stat VARCHAR(255) NOT NULL,
+            stat_hash VARCHAR(64) NOT NULL UNIQUE
+        );
+        ''',
+        '''
+        CREATE TABLE IF NOT EXISTS version (
+            id SERIAL PRIMARY KEY,
+            version INTEGER NOT NULL UNIQUE,
+            name TEXT
+        );
+        ''',
+        '''
+        INSERT OR IGNORE INTO version (version, name) VALUES (1, 'Initial version');
+        '''
+    ]
+
+
+class Archiver:
+    def __init__(self, config):
+        for required in ['dir_target', 'dir_source', 'db_sqlite', 'dir_logs', 'file_types']:
+            if required not in config:
+                print(f"Required config item not found: {required}; exiting")
+                exit(1)
+
+        today = datetime.now().strftime('%Y-%m-%d')
+        self.target = expand_path(config.get('dir_target', None))
+        self.source = expand_path(config.get('dir_source', None))
+        self.sqlite = expand_path(config.get('db_sqlite', None))
+        self.logfile = expand_path(config.get('dir_logs', None) + f'/{today}.log')
+        self.file_types = config.get('file_types', None)
+        self.extension_groups = {}
+        self.other_extensions = set()
+        self.name = config.get('name', 'not set')
+
+        logging.basicConfig(
+            filename=self.logfile,
+            level=logging.INFO,
+            format='%(asctime)s - %(levelname)s - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S',
+            filemode='a'  # Append mode 
+        )
+        logging.info("Archiver initialized for archive name: %s", config.get('name'))
+
+        try:
+            db_connection = sqlite3.connect(self.sqlite)
+            self.db_cursor = db_connection.cursor()
+            self.create_sql()
+        except sqlite3.Error as e:
+            print(f"Error connecting to SQLite database: {e}")
+            exit(1)
+        
+        if not self.validate_directory(os.path.dirname(self.logfile), "Log file path must be a directory"):
+            print("Log file path invalid")
+            exit(1)
+
+        all_extensions = []
+        for group, extensions in config['file_types'].items():
+            for ext in extensions:
+                ext = ext.lower()
+                self.extension_groups[ext] = group
+                all_extensions.append(ext)
+
+        self.all_extensions = set(all_extensions)
+
+    def validate_directory(self, path, hint=None):
+        """Validate that the given path is a directory."""
+        if path is None:
+            print(f"Path is None. {hint}")
+            return False
+        if not os.path.exists(path):
+            print(f"Directory: '{path}' does not exist. {hint}")
+            return False
+        if not os.path.isdir(path):
+            print(f"Path: 'path' is not a directory. {hint}")
+            return False
+        return True
+
+    def add_file(self, found_values, file_stats: os.stat_result):
+
+        """
+                    sha256 VARCHAR(64) NOT NULL UNIQUE,
+                    name VARCHAR(255) NOT NULL,
+                    extension VARCHAR(10) NOT NULL,
+                    `group` VARCHAR(20) NOT NULL,
+                    created_at TIMESTAMP,
+                    modified_at TIMESTAMP,        
+                    archive_full_path TEXT NOT NULL,
+                    thumbnail_path TEXT,
+                    size BIGINT NOT NULL
+            
+                    id SERIAL PRIMARY KEY,
+                    sha256 VARCHAR(64) NOT NULL,
+                    name VARCHAR(255) NOT NULL,
+                    extension VARCHAR(10) NOT NULL,
+                    `group` VARCHAR(20) NOT NULL,
+                    created_at TIMESTAMP,
+                    modified_at TIMESTAMP,           
+                    accessed_at TIMESTAMP,
+                    source_drive VARCHAR(255) NOT NULL,
+                    source_path TEXT NOT NULL,
+                    stat VARCHAR(255) NOT NULL,
+                    stat_hash VARCHAR(64) NOT NULL UNIQUE
+        """
+
+        # the output path will be {target}/{group}/{ext}/{sha256}.{ext}
+        target_path = os.path.join(self.target, found_values[3], found_values[2], found_values[0] + '.' + found_values[2])
+        target_dir = os.path.dirname(target_path)
+        src_path = os.path.join(found_values[8], found_values[1] + '.' + found_values[2])
+        
+
+        values = [
+            found_values[0],            # sha256
+            found_values[1],            # name
+            found_values[2],            # extension
+            found_values[3],            # group
+            found_values[4],            # created_at
+            found_values[5],            # modified_at
+            target_path,                # archive_full_path
+            file_stats.st_size,         # size
+        ]
+
+        if not os.path.exists(target_dir):
+            try:
+                os.makedirs(target_dir)
+            except OSError as e:
+                logging.error(f"Error creating target directory {target_dir}: {e}")
+                return False
+
+        # Move or copy the file to target location
+        try:
+            logging.debug(f"Adding file to archive: {src_path} -> {target_path}")
+            shutil.copyfile(src_path, target_path)
+        except OSError as e:
+            logging.error(f"Error copying file from {src_path} to {target_path}: {e}")
+            return False
+
+        try:
+            self.db_cursor.execute('''
+                INSERT INTO files (sha256, name, extension, `group`, created_at, modified_at, archive_full_path, size)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(sha256) DO NOTHING;
+            ''', values)
+            self.db_cursor.connection.commit()
+        except sqlite3.Error as e:
+            logging.error(f"Error inserting into files table: {e}")
+            return False
+
+        return True
+
+
+    def create_sql(self):
+        """Create the SQLite database and tables if they do not exist."""
+        """Not the most elegant way to do this, but it keeps the migrations in a single file."""
+        try:
+            for sql in sql_schema():
+                self.db_cursor.execute(sql)
+            self.db_cursor.connection.commit()
+            logging.info("SQLite database and tables created successfully.")
+        except sqlite3.Error as e:
+            logging.error(f"Error creating SQLite database: {e}")
+            return False
+        return True
+
+    def process_file(self, filename, ext, directory):
+        """Process a single file based on the configuration."""
+        full_path = os.path.join(directory, filename + '.' + ext)
+
+        # Calculate SHA256 hash of the file
+        sha256_hash = hashlib.sha256()
+        with open(full_path, 'rb') as f:
+            # Read file in chunks to handle large files efficiently
+            for byte_block in iter(lambda: f.read(4096), b""):
+                sha256_hash.update(byte_block)
+        file_hash = sha256_hash.hexdigest()
+        stat = os.stat(full_path)
+        # This keeps us from having multiple entries for the same file from the same source drive
+        unique_stat = (self.name + full_path + str(stat))
+        stat_hash = hashlib.sha256(unique_stat.encode('utf-8')).hexdigest()
+
+        values = [
+            file_hash,                   # sha256
+            filename,                    # name
+            ext,                         # extension
+            self.extension_groups[ext],  # group (from the extension groups)
+            stat.st_ctime,               # created_at
+            stat.st_mtime,               # modified_at
+            stat.st_atime,               # accessed_at
+            self.name,                   # source_drive (from the input name)
+            directory,                   # source_path
+            str(stat),                   # stat object - for so we have everything else (from os.stat)
+            stat_hash
+        ]
+        try:
+            self.db_cursor.execute('''
+                INSERT INTO files_found (sha256, name, extension, `group`, created_at, modified_at, accessed_at, source_drive, source_path, stat, stat_hash)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(stat_hash) DO NOTHING;
+            ''', values)
+            self.db_cursor.connection.commit()
+        except sqlite3.Error as e:
+            logging.error(f"Error inserting file into database: {e}")
+            return False
+        
+        # Check if this file already exists in the files table
+        self.db_cursor.execute('SELECT COUNT(*) FROM files WHERE sha256 = ?', (file_hash,))
+
+        if self.db_cursor.fetchone()[0] == 0:
+            if self.add_file(values, stat) == False:
+                logging.error(f"Failed to add file {filename} to the archive.")
+                return False
+
+        # Log the file processing
+        logging.info(f"File found: {filename}, in directory: {directory} with extension: {ext}")
+        return True
+
+        
+    # This is the primary loop that looks at the files and sees if they are interesting,
+    # that is to say, an extension in a group that we care about
+    def process_archive_directory(self):
+        """Process the source directory and archive files based on their extensions."""
+        if not self.validate_directory(self.source, "Source directory must be a valid directory"):
+            print("Source directory invalid")
+            return False
+
+        for dirname, subdirs, files in os.walk(self.source):
+            for file in files:
+                name, ext = os.path.splitext(file)
+                if len(ext) > 1 and ext[0] == ".":
+                    ext = ext.lower()[1:]
+                else:
+                    # if it doesn't start with a dot, just make it lowercase
+                    ext = ext.lower()
+
+                if ext in self.all_extensions:
+                    if self.process_file(name, ext, dirname) == False:
+                        return False
+                else:
+                    self.other_extensions.add(ext)
+                    
+        if len(self.other_extensions) > 0:
+            logging.warning(f"Found files with unsupported extensions: {self.other_extensions}")
+        return True
+
+if __name__ == "__main__":
+    print("Running archiver script...")
+    if '-i' in os.sys.argv or '--init' in os.sys.argv:
+        if init_dir(config_path):
+            print("Archiver directory initialized successfully.")
+            exit(0)
+        else:
+            print("Failed to initialize archiver directory.")
+            exit(1)
+    if '-d' in os.sys.argv or '--dump' in os.sys.argv:
+        for sql in sql_schema():
+            print(sql)
+        exit(0)
+    if '-c' in os.sys.argv or '--config' in os.sys.argv:
+        try:
+            index = os.sys.argv.index('-c') if '-c' in os.sys.argv else os.sys.argv.index('--config')
+            config_path_new = os.sys.argv[index + 1]
+        except IndexError:
+            print("No configuration file specified after -c or --config.")
+            print_usage()
+            exit(1)
+    config = load_archiver_config(config_path)
+
+    if config is None:
+        print("Failed to load configuration. Exiting.")
+        exit(1)
+    if process_args(os.sys.argv[1:]) == False:
+        print("Error processing arguments. Exiting.")
+        print_usage()
+        exit(1)
+    if 'name' not in config or config['name'] is None:
+        print(f"Name for the backup is required. Please provide a name using --name or -n.")
+        print_usage()
+        exit(1)
+
+    runner = Archiver(config)
+    if not runner.process_archive_directory():
+        print("Failed to process archive directory.")
+        exit(1)
+
+    print("Archiver script executed successfully.")

@@ -2,6 +2,19 @@
 
 Scripts to create and backup a file &amp; photo archive from my random collection of drives
 
+The goal of this is to create a a single *archive* copy and store all the references
+and metadata in a database.
+
+## Phases
+
+The first part is a simple script to get the data, the latter would be a service to work with what was collected
+
+1. Create the archive
+2. Add a way to merge data from 2 different sources
+3. View files 
+4. Make a way to rename / sort
+5. Classify Files / Mark files to delete / skip
+
 ## Mounting Disks
 
 Mount all disks under /mnt/souce like
@@ -28,28 +41,15 @@ mount -o uid=1000,gid=1000,ro /dev/sdd5 /mnt/source/DATA
 
 ## Config
 
-These should be a simple YAML file that defines all the settings necessary
+These should be a simple YAML file that defines all the settings necessary. To create the default config run
+`archiver --init`
 
-archiver.cfg
-```yaml
+### Dev notes
 
-source:
-target:
-backup:
-sqlite:
-image_types:
-  - gif
-  - jpg
-  - jpeg
-  - ...
-other_types:
-  - pdf
-  - doc
-  - docx
-  - xls
-  - xlsx
-  - ...
+```sh
+python3 -m venv .venv
+source .venv/bin/activate
 
-
-
+pip freeze > requirements.txt
+pip install -r requirements.txt
 ```
