@@ -337,10 +337,22 @@ class Archiver:
 
         # Calculate SHA256 hash of the file
         sha256_hash = hashlib.sha256()
-        with open(full_path, 'rb') as f:
-            # Read file in chunks to handle large files efficiently
-            for byte_block in iter(lambda: f.read(4096), b""):
-                sha256_hash.update(byte_block)
+
+        try:
+            with open(full_path, 'rb') as f:
+                # Read file in chunks to handle large files efficiently
+                for byte_block in iter(lambda: f.read(4096), b""):
+                    sha256_hash.update(byte_block)
+        except FileNotFoundError:   
+            logging.error(f"File not found: {full_path}")
+            return False
+        except IOError as e:
+            logging.error(f"Error reading file {full_path}: {e}")
+            return False
+        except Exception as e:
+            logging.error(f"Unexpected error processing file {full_path}: {e}")
+            return False
+
         file_hash = sha256_hash.hexdigest()
         stat = os.stat(full_path)
         # This keeps us from having multiple entries for the same file from the same source drive
@@ -403,7 +415,7 @@ class Archiver:
 
                 if ext in self.all_extensions:
                     if self.process_file(name, ext, dirname) == False:
-                        return False
+                        logging.error(f"Failed to process file {file} with extension {ext} in directory {dirname}.")
                 else:
                     self.other_extensions.add(ext)
                     
