@@ -92,6 +92,7 @@ def print_usage():
     print("  --backup,  -b <directory>  Set the backup directory")
     print("  --sqlite,  -q <file>       Set the SQLite database file")
     print("  --logfile, -l <file>       Set the log file")
+    print("  --dump,    -d              Dump the current sql schema to stdout")
     print("  --init,    -i              Init archiver config directory (should be the only option)")
     print("  --help,    -h              Show this help message")
 
@@ -137,6 +138,52 @@ def process_args(args):
             exit(0)
 
         return success
+
+def sql_schema():
+    """Returns a list of SQL statements to create the necessary tables."""
+    return [
+        '''
+        CREATE TABLE IF NOT EXISTS files (
+            id SERIAL PRIMARY KEY,
+            sha256 VARCHAR(64) NOT NULL UNIQUE,
+            name VARCHAR(255) NOT NULL,
+            extension VARCHAR(10) NOT NULL,
+            `group` VARCHAR(20) NOT NULL,
+            created_at TIMESTAMP,
+            modified_at TIMESTAMP,        
+            archive_full_path TEXT NOT NULL,
+            size BIGINT NOT NULL,
+            thumbnail_path TEXT
+        );
+        ''',
+        '''
+        CREATE TABLE IF NOT EXISTS files_found (
+            id SERIAL PRIMARY KEY,
+            sha256 VARCHAR(64) NOT NULL,
+            name VARCHAR(255) NOT NULL,
+            extension VARCHAR(10) NOT NULL,
+            `group` VARCHAR(20) NOT NULL,
+            created_at TIMESTAMP,
+            modified_at TIMESTAMP,           
+            accessed_at TIMESTAMP,
+            source_drive VARCHAR(255) NOT NULL,
+            source_path TEXT NOT NULL,
+            stat VARCHAR(255) NOT NULL,
+            stat_hash VARCHAR(64) NOT NULL UNIQUE
+        );
+        ''',
+        '''
+        CREATE TABLE IF NOT EXISTS version (
+            id SERIAL PRIMARY KEY,
+            version INTEGER NOT NULL UNIQUE,
+            name TEXT
+        );
+        ''',
+        '''
+        INSERT OR IGNORE INTO version (version, name) VALUES (1, 'Initial version');
+        '''
+    ]
+
 
 class Archiver:
     def __init__(self, config):
@@ -275,46 +322,8 @@ class Archiver:
         """Create the SQLite database and tables if they do not exist."""
         """Not the most elegant way to do this, but it keeps the migrations in a single file."""
         try:
-            self.db_cursor.execute('''
-                CREATE TABLE IF NOT EXISTS files (
-                    id SERIAL PRIMARY KEY,
-                    sha256 VARCHAR(64) NOT NULL UNIQUE,
-                    name VARCHAR(255) NOT NULL,
-                    extension VARCHAR(10) NOT NULL,
-                    `group` VARCHAR(20) NOT NULL,
-                    created_at TIMESTAMP,
-                    modified_at TIMESTAMP,        
-                    archive_full_path TEXT NOT NULL,
-                    size BIGINT NOT NULL,
-                    thumbnail_path TEXT
-                );
-            ''')
-            self.db_cursor.execute('''
-                CREATE TABLE IF NOT EXISTS files_found (
-                    id SERIAL PRIMARY KEY,
-                    sha256 VARCHAR(64) NOT NULL,
-                    name VARCHAR(255) NOT NULL,
-                    extension VARCHAR(10) NOT NULL,
-                    `group` VARCHAR(20) NOT NULL,
-                    created_at TIMESTAMP,
-                    modified_at TIMESTAMP,           
-                    accessed_at TIMESTAMP,
-                    source_drive VARCHAR(255) NOT NULL,
-                    source_path TEXT NOT NULL,
-                    stat VARCHAR(255) NOT NULL,
-                    stat_hash VARCHAR(64) NOT NULL UNIQUE
-                );
-            ''')
-            self.db_cursor.execute('''
-                CREATE TABLE IF NOT EXISTS version (
-                    id SERIAL PRIMARY KEY,
-                    version INTEGER NOT NULL UNIQUE,
-                    name TEXT
-                );
-            ''')
-            self.db_cursor.execute('''
-                INSERT OR IGNORE INTO version (version, name) VALUES (1, 'Initial version');
-            ''')  
+            for sql in sql_schema():
+                self.db_cursor.execute(sql)
             self.db_cursor.connection.commit()
             logging.info("SQLite database and tables created successfully.")
         except sqlite3.Error as e:
@@ -411,6 +420,10 @@ if __name__ == "__main__":
         else:
             print("Failed to initialize archiver directory.")
             exit(1)
+    if '-d' in os.sys.argv or '--dump' in os.sys.argv:
+        for sql in sql_schema():
+            print(sql)
+        exit(0)
     if '-c' in os.sys.argv or '--config' in os.sys.argv:
         try:
             index = os.sys.argv.index('-c') if '-c' in os.sys.argv else os.sys.argv.index('--config')

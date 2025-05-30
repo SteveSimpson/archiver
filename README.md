@@ -7,9 +7,14 @@ and metadata in a database.
 
 ## Phases
 
-### Phase 1
+The first part is a simple script to get the data, the latter would be a service to work with what was collected
 
-Create the Archive 
+1. Create the archive
+2. Add a way to merge data from 2 different sources
+3. View files 
+4. Make a way to rename / sort
+5. Classify Files / Mark files to delete / skip
+
 ## Mounting Disks
 
 Mount all disks under /mnt/souce like
