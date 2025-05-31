@@ -63,7 +63,11 @@ def init_dir(config_path):
         print(f"Log directory already exists: {log_dir}")
                    
     # Create the initial configuration file if it does not exist
-    init_config = {'dir_source': '~/Documents', 'dir_target': '~/archive', 'dir_backup': '~/backup', 'db_sqlite': '~/.archiver/archiver.sqlite', 'dir_logs': '~/.archiver/log', 
+    init_config = {'dir_source': '~/Documents', 
+                   'dir_target': '~/archive', 
+                   'dir_backup': '~/backup', 
+                   'db_sqlite': '~/.archiver/archiver.sqlite', 'dir_logs': '~/.archiver/log',
+                   'log_level': 'INFO',
                    'file_types': {'images': ['gif', 'jpg', 'jpeg', 'png', 'svg', 'bmp', 'tiff', 'tif', 'heic', 'ico'], 
                                   'media': ['mp3', 'mp4', 'avi', 'mkv', 'flv', 'mov', 'wmv', 'webm', 'm4a', 'wav', 'ogg', 'aac', 'flac', 'wma', 'mpeg'],
                                   'documents': ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'pub', 'epub', 'ppt', 'pptx'], 'data': ['sqlite', 'csv', 'sql', 'mdb', 'db', 'psp', 'ai'],
@@ -202,9 +206,19 @@ class Archiver:
         self.other_extensions = set()
         self.name = config.get('name', 'not set')
 
+        match config.get('log_level', 'INFO').upper():
+            case 'DEBUG':
+                logging_level = logging.DEBUG
+            case 'WARNING':
+                logging_level = logging.WARNING
+            case 'ERROR':
+                logging_level = logging.ERROR
+            case _:
+                logging_level = logging.INFO  # Default to INFO if not recognized
+
         logging.basicConfig(
             filename=self.logfile,
-            level=logging.INFO,
+            level=logging_level,
             format='%(asctime)s - %(levelname)s - %(message)s',
             datefmt='%Y-%m-%d %H:%M:%S',
             filemode='a'  # Append mode 
