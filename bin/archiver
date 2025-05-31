@@ -292,6 +292,7 @@ class Archiver:
         if not os.path.exists(target_dir):
             try:
                 os.makedirs(target_dir)
+                logging.debug(f"Created target directory: {target_dir}")
             except OSError as e:
                 logging.error(f"Error creating target directory {target_dir}: {e}")
                 return False
@@ -300,6 +301,7 @@ class Archiver:
         try:
             logging.debug(f"Adding file to archive: {src_path} -> {target_path}")
             shutil.copyfile(src_path, target_path)
+            logging.debug(f"File copied from {src_path} to {target_path}")
         except OSError as e:
             logging.error(f"Error copying file from {src_path} to {target_path}: {e}")
             return False
