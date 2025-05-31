@@ -274,7 +274,7 @@ class Archiver:
 
         # the output path will be {target}/{group}/{ext}/{sha256}.{ext}
         target_path = pathvalidate.sanitize_filename(os.path.join(self.target, found_values[3], found_values[2], found_values[0] + '.' + found_values[2]))
-        target_dir = os.path.dirname(target_path)
+        target_dir = pathvalidate.sanitize_filename(os.path.join(self.target, found_values[3], found_values[2]))
         src_path = os.path.join(found_values[8], found_values[1] + '.' + found_values[2])
         
 
