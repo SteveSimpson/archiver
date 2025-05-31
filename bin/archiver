@@ -294,8 +294,6 @@ class Archiver:
         target_dir = os.path.join(self.target, group, ext)
         target_path = os.path.join(target_dir, sha256 + '.' + ext)
         
-        
-
         values = [
             found_values[0],            # sha256
             found_values[1],            # name
