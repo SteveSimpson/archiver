@@ -271,11 +271,29 @@ class Archiver:
                     stat VARCHAR(255) NOT NULL,
                     stat_hash VARCHAR(64) NOT NULL UNIQUE
         """
+        sha256 = found_values[0]
+        name = found_values[1]
+        ext = found_values[2]
+        group = found_values[3]
 
+        if ext == '' or ext is None:
+            logging.error(f"File {name}, {sha256} has no extension, skipping.")
+            return False
+
+        if group == '' or group is None:
+            logging.error(f"File {name}, {sha256} has no group, skipping.")
+            return False
+
+        src_path = os.path.join(
+            pathvalidate.sanitize_filepath(found_values[8]),
+            pathvalidate.sanitize_filename(found_values[1] + '.' + found_values[2])
+        )
+        
+        logging.debug(f"Adding file: {name}, extension: {ext}, group: {group}, sha256: {sha256}, source path: {src_path}")
         # the output path will be {target}/{group}/{ext}/{sha256}.{ext}
-        target_path = pathvalidate.sanitize_filename(os.path.join(self.target, found_values[3], found_values[2], found_values[0] + '.' + found_values[2]))
-        target_dir = pathvalidate.sanitize_filename(os.path.join(self.target, found_values[3], found_values[2]))
-        src_path = os.path.join(found_values[8], found_values[1] + '.' + found_values[2])
+        target_dir = os.path.join(self.target, group, ext)
+        target_path = os.path.join(target_dir, sha256 + '.' + ext)
+        
         
 
         values = [
