@@ -172,3 +172,11 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# From viewer / node
+.DS_Store
+/viewer/node_modules/
+
+# React Router
+/viewer/.react-router/
+/viewer/build/
