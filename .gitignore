@@ -173,10 +173,20 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
-# From viewer / node
+# OSX
 .DS_Store
-/viewer/node_modules/
 
-# React Router
-/viewer/.react-router/
-/viewer/build/
+####  From Node
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
