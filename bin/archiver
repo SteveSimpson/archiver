@@ -38,30 +38,6 @@ def init_dir(config_path):
     else:
         print(f"Directory already exists: {config_dir}")
 
-    file_path = os.path.expanduser(config_dir + "/archiver.sqlite")
-    if not os.path.exists(file_path):
-        try:    
-            with open(file_path, 'w') as file:
-                pass  # Create an empty SQLite file
-            print(f"Created SQLite file: {file_path}")
-        except OSError as e:
-            print(f"Error creating SQLite file {file_path}: {e}")
-            return False
-    else:   
-        print(f"SQLite file already exists: {file_path}")
-    
-    # Create the log directory if it does not exist
-    log_dir = os.path.expanduser(os.path.join(config_dir, 'log'))
-    if not os.path.exists(log_dir):
-        try:
-            os.makedirs(log_dir)
-            print(f"Created log directory: {log_dir}")
-        except OSError as e:
-            print(f"Error creating log directory {log_dir}: {e}")
-            return False
-    else:
-        print(f"Log directory already exists: {log_dir}")
-                   
     # Create the initial configuration file if it does not exist
     init_config = {'dir_source': '~/Documents', 
                    'dir_target': '~/archive', 
@@ -78,11 +54,40 @@ def init_dir(config_path):
             with open(file_path, 'w') as file:
                 yaml.dump(init_config, file)
             print(f"Created configuration file: {file_path}")
+            print("Please edit the configuration file to suit your needs and re-run --init to create the directories.")
+            exit(0)
         except OSError as e:
             print(f"Error creating configuration file {file_path}: {e}")
             return False
     else:
-        print(f"Configuration file already exists: {file_path}. Delete the file to create a new one.")
+        print(f"Configuration file exists: {file_path}, initialing paths using config. Delete the file if you want to start fresh.")
+    
+    # load the config file (either existin or the one we just created)
+    config = load_archiver_config(config_path)
+
+    file_path = os.path.expanduser(config.get('db_sqlite', None))
+    if not os.path.exists(file_path):
+        try:    
+            with open(file_path, 'w') as file:
+                pass  # Create an empty SQLite file
+            print(f"Created SQLite file: {file_path}")
+        except OSError as e:
+            print(f"Error creating SQLite file {file_path}: {e}")
+            return False
+    else:   
+        print(f"SQLite file already exists: {file_path}")
+    
+    # Create the log directory if it does not exist
+    log_dir = os.path.expanduser(config.get('dir_logs', None))
+    if not os.path.exists(log_dir):
+        try:
+            os.makedirs(log_dir)
+            print(f"Created log directory: {log_dir}")
+        except OSError as e:
+            print(f"Error creating log directory {log_dir}: {e}")
+            return False
+    else:
+        print(f"Log directory already exists: {log_dir}")
 
     return True
 
