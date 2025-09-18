@@ -180,3 +180,7 @@ cython_debug/
 # React Router
 /viewer/.react-router/
 /viewer/build/
+
+# Allow a link to the local config file
+config.yaml
+
