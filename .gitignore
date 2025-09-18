@@ -175,16 +175,14 @@ cython_debug/
 
 # OSX
 .DS_Store
-/viewer/node_modules/
-
-# React Router
-/viewer/.react-router/
-/viewer/build/
 
 # Allow a link to the local config file
 config.yaml
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 75be92d (Merge in master)
 ####  From Node
 # Logs
 logs
