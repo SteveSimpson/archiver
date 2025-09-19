@@ -3,10 +3,18 @@ import globals from 'globals'
 import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 
-export default [
-  { ignores: ['dist'] },
+export default defineConfig([
+  globalIgnores(['dist']),
   {
-    files: ['**/*.{js,jsx}'],
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Remove tseslint.configs.recommended and replace with this
+      tseslint.configs.recommendedTypeChecked,
+      // Alternatively, use this for stricter rules
+      tseslint.configs.strictTypeChecked,
+      // Optionally, add this for stylistic rules
+      tseslint.configs.stylisticTypeChecked
+    ],
     languageOptions: {
       ecmaVersion: 2020,
       globals: globals.browser,
@@ -14,6 +22,8 @@ export default [
         ecmaVersion: 'latest',
         ecmaFeatures: { jsx: true },
         sourceType: 'module',
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
       },
     },
     plugins: {
@@ -30,4 +40,4 @@ export default [
       ],
     },
   },
-]
+])
